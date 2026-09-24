@@ -31,12 +31,12 @@ interface ChannelResult {
 }
 
 interface PlaylistResult {
-  id: number;
+  id: string | number;
   title: string;
   description: string;
   itemCount: number;
   thumbnailUrl: string | null;
-  owner: { id: number; username: string; displayName: string };
+  owner: { id: string | number; username: string; displayName: string };
 }
 
 function SearchContent() {

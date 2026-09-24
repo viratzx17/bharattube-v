@@ -354,7 +354,7 @@ export default function WatchPage({
     showToast("Comment deletion is not exposed by the current backend.", "info");
   };
 
-  const handleLikeComment = async (commentId: number) => {
+  const handleLikeComment = async (commentId: string | number) => {
     if (!user) {
       openAuthModal("login");
       return;
@@ -367,7 +367,7 @@ export default function WatchPage({
       const data = await res.json();
       setComments((prev) =>
         prev.map((c) =>
-          c.id === commentId
+          String(c.id) === String(commentId)
             ? {
                 ...c,
                 likesCount: Number(data.likesCount ?? c.likesCount),

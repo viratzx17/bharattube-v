@@ -85,7 +85,7 @@ export function UploadStudio({ onClose }: { onClose: () => void }) {
     "public"
   );
   const [playlistId, setPlaylistId] = useState("");
-  const [playlists, setPlaylists] = useState<Array<{ id: number; title: string }>>([]);
+  const [playlists, setPlaylists] = useState<Array<{ id: string | number; title: string }>>([]);
 
   const [publishedId, setPublishedId] = useState<string | null>(null);
 

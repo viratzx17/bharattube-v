@@ -16,7 +16,7 @@ import { apiUrl } from "@/lib/api-config";
 import { channelHref } from "@/lib/backend-adapter";
 
 interface SubscribedChannel {
-  channelId: number;
+  channelId: string | number;
   displayName: string;
   username: string;
   avatarUrl: string | null;

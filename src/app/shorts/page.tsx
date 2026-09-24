@@ -34,11 +34,11 @@ import { apiUrl } from "@/lib/api-config";
 import { channelHref } from "@/lib/backend-adapter";
 
 interface ShortComment {
-  id: number;
+  id: string | number;
   content: string;
   createdAt: string;
   author: {
-    id: number;
+    id: string | number;
     username: string;
     displayName: string;
     avatarUrl: string | null;
@@ -323,7 +323,7 @@ function CommentsSheet({
   onClose,
   onPosted,
 }: {
-  videoId: number;
+  videoId: string | number;
   onClose: () => void;
   onPosted: () => void;
 }) {
@@ -497,7 +497,7 @@ function ShortsContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [muted, setMuted] = useState(true); // mobile autoplay requires muted
-  const [commentsFor, setCommentsFor] = useState<number | null>(null);
+  const [commentsFor, setCommentsFor] = useState<string | number | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<Array<HTMLDivElement | null>>([]);

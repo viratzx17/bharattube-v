@@ -78,7 +78,7 @@ export function CollectionPage({
     if (!loadingAuth) load();
   }, [load, loadingAuth, feedRefreshTrigger]);
 
-  const handleRemove = async (videoId: number) => {
+  const handleRemove = async (videoId: string | number) => {
     try {
       let res: Response;
       if (removeMode === "history") {
@@ -88,13 +88,13 @@ export function CollectionPage({
           body: JSON.stringify({ action: "remove_history_item", videoId }),
         });
       } else if (removeMode === "watch_later") {
-        res = await fetch(apiUrl(`/videos/${videoId}`), {
+        res = await fetch(apiUrl(`/videos/${encodeURIComponent(String(videoId))}`), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "watch_later" }),
         });
       } else {
-        res = await fetch(apiUrl(`/videos/${videoId}`), { method: "DELETE" });
+        res = await fetch(apiUrl(`/videos/${encodeURIComponent(String(videoId))}`), { method: "DELETE" });
       }
 
       if (!res.ok) {

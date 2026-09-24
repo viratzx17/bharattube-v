@@ -46,8 +46,8 @@ export interface UserProfile {
 }
 
 export interface ChannelProfile {
-  channelId: number;
-  ownerUserId: number;
+  channelId: string | number;
+  ownerUserId: string | number;
   channelName: string;
   handle: string;
   profilePhotoUrl: string | null;
@@ -119,8 +119,8 @@ interface AppContextType {
   uploadModalOpen: boolean;
   openUploadModal: () => void;
   closeUploadModal: () => void;
-  playlistModalVideoId: number | null;
-  openPlaylistModal: (videoId: number) => void;
+  playlistModalVideoId: string | number | null;
+  openPlaylistModal: (videoId: string | number) => void;
   closePlaylistModal: () => void;
 
   /* feed */
@@ -151,7 +151,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalInitialTab, setAuthModalInitialTab] = useState<"login" | "signup">("login");
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
-  const [playlistModalVideoId, setPlaylistModalVideoId] = useState<number | null>(null);
+  const [playlistModalVideoId, setPlaylistModalVideoId] = useState<string | number | null>(null);
   const [feedRefreshTrigger, setFeedRefreshTrigger] = useState(0);
 
   const [toast, setToast] = useState<{
@@ -546,7 +546,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const closeUploadModal = useCallback(() => setUploadModalOpen(false), []);
 
   const openPlaylistModal = useCallback(
-    (videoId: number) => {
+    (videoId: string | number) => {
       if (authStatus !== "authenticated") {
         openAuthModal();
         showToast("Sign in to save videos to playlists", "info");

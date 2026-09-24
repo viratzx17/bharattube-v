@@ -26,25 +26,25 @@ import { useApp } from "@/context/AppContext";
 import { apiUrl } from "@/lib/api-config";
 
 interface PlaylistDetail {
-  id: number;
+  id: string | number;
   title: string;
   description: string;
   visibility: string;
   itemCount: number;
   thumbnailUrl: string | null;
-  userId: number;
-  owner?: { id: number; username: string; displayName: string };
+  userId: string | number;
+  owner?: { id: string | number; username: string; displayName: string };
   videos: VideoItem[];
 }
 
 interface PlaylistSummary {
-  id: number;
+  id: string | number;
   title: string;
   description: string;
   visibility: string;
   itemCount: number;
   thumbnailUrl: string | null;
-  userId: number;
+  userId: string | number;
 }
 
 const VISIBILITY_ICON: Record<string, React.ReactNode> = {
@@ -97,11 +97,11 @@ function PlaylistsContent() {
     }
   }, [needsAuth]);
 
-  const loadDetail = useCallback(async (pid: number) => {
+  const loadDetail = useCallback(async (pid: string | number) => {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(apiUrl(`/playlists?id=${pid}`), { cache: "no-store" });
+      const res = await fetch(apiUrl(`/playlists?id=${encodeURIComponent(String(pid))}`), { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Playlist unavailable");
       setDetail(data.playlist);
@@ -116,7 +116,7 @@ function PlaylistsContent() {
   useEffect(() => {
     if (loadingAuth) return;
     if (playlistIdParam) {
-      loadDetail(Number(playlistIdParam));
+      loadDetail(playlistIdParam);
     } else {
       setDetail(null);
       loadPlaylists();
@@ -184,7 +184,7 @@ function PlaylistsContent() {
     }
   };
 
-  const handleDelete = async (playlistId: number) => {
+  const handleDelete = async (playlistId: string | number) => {
     try {
       const res = await fetch(apiUrl("/playlists"), {
         method: "POST",
@@ -204,7 +204,7 @@ function PlaylistsContent() {
     }
   };
 
-  const handleRemoveVideo = async (videoId: number) => {
+  const handleRemoveVideo = async (videoId: string | number) => {
     if (!detail) return;
     try {
       const res = await fetch(apiUrl("/playlists"), {
@@ -298,7 +298,7 @@ function PlaylistsContent() {
         <div className="max-w-3xl mx-auto px-6 py-10">
           <ErrorState
             message={error || "Playlist unavailable"}
-            onRetry={() => loadDetail(Number(playlistIdParam))}
+            onRetry={() => loadDetail(playlistIdParam)}
           />
           <div className="text-center mt-4">
             <Link href="/playlists" className="text-xs font-semibold text-red-500 hover:underline">
@@ -309,7 +309,7 @@ function PlaylistsContent() {
       );
     }
 
-    const isOwner = user?.id === detail.userId;
+    const isOwner = user ? String(user.id) === String(detail.userId) : false;
 
     return (
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">

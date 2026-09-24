@@ -33,7 +33,7 @@ import { formatTimeAgo } from "@/lib/format";
 import { apiUrl } from "@/lib/api-config";
 
 interface NotificationRecord {
-  id: number;
+  id: string | number;
   type: string;
   title: string;
   message: string;
@@ -41,7 +41,7 @@ interface NotificationRecord {
   isRead: boolean;
   createdAt: string;
   actor?: {
-    id: number;
+    id: string | number;
     username: string;
     displayName: string;
     avatarUrl: string | null;
@@ -184,7 +184,7 @@ function TopNavbar() {
     }
   };
 
-  const markSingleRead = async (id: number, link: string) => {
+  const markSingleRead = async (id: string | number, link: string) => {
     await fetch(apiUrl("/activity"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },

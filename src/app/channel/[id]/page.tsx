@@ -47,7 +47,7 @@ interface ChannelProfile {
 }
 
 interface PlaylistSummary {
-  id: number;
+  id: string | number;
   title: string;
   description: string;
   visibility: string;

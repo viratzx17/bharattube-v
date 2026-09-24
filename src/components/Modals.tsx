@@ -38,12 +38,12 @@ function PlaylistModal({
   videoId,
   onClose,
 }: {
-  videoId: number;
+  videoId: string | number;
   onClose: () => void;
 }) {
   const { showToast } = useApp();
   const [playlists, setPlaylists] = useState<
-    Array<{ id: number; title: string; visibility: string; videoIds: number[] }>
+    Array<{ id: string | number; title: string; visibility: string; videoIds: Array<string | number> }>
   >([]);
   const [loading, setLoading] = useState(true);
   const [newTitle, setNewTitle] = useState("");
@@ -68,7 +68,7 @@ function PlaylistModal({
   }, []);
 
   const toggleVideoInPlaylist = async (
-    playlistId: number,
+    playlistId: string | number,
     currentlyIncluded: boolean
   ) => {
     try {
