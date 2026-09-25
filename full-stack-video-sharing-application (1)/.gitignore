@@ -1,0 +1,72 @@
+# ─────────────────────────────────────────────────────────────────────
+# BharatTube — Git ignore rules
+# ─────────────────────────────────────────────────────────────────────
+
+# Dependencies (reinstall with `npm install`) — never commit.
+node_modules/
+.pnp
+.pnp.js
+.pnp.cjs
+.yarn/cache
+.yarn/install-state.gz
+
+# Next.js build output + local dev artifacts
+.next/
+out/
+build/
+dist/
+.swc/
+.next-env.d.ts
+
+# Runtime data written by the app (uploaded media / temp chunks).
+# Never commit user uploads.
+.data/
+public/uploads/
+
+# Environment / secrets — NEVER commit real values.
+# .env.example IS committed (names only, no secrets).
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Caches
+.cache/
+.turbo/
+.eslintcache
+*.tsbuildinfo
+next-env.d.ts
+
+# Test / coverage output
+coverage/
+.nyc_output/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.desktop.ini
+*.swp
+*.swo
+*~
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Vercel / deploy metadata
+.vercel/
+.now/
+
+# Archives — accidental zips must never be pushed
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
