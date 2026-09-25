@@ -508,7 +508,7 @@ export function UploadStudio({ onClose }: { onClose: () => void }) {
           ) : (
             <form
               onSubmit={handlePublish}
-              className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 pb-safe"
+              className="flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 pb-28 pb-safe"
             >
               {/* Preview */}
               <div
@@ -660,6 +660,7 @@ export function UploadStudio({ onClose }: { onClose: () => void }) {
               {/* Thumbnail */}
               <div>
                 <label className="block text-xs font-semibold mb-1.5">Thumbnail</label>
+                <p className="text-[11px] text-zinc-500 mb-2">Recommended: 1280×720 (16:9). JPG, PNG or WebP. Maximum 5 MB.</p>
                 <div className="flex items-center gap-3">
                   <div className="w-28 shrink-0 aspect-video rounded-lg overflow-hidden bg-zinc-900 grid place-items-center">
                     {thumbnailUrl ? (
@@ -775,7 +776,7 @@ export function UploadStudio({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-1">
+              <div className="sticky bottom-0 -mx-4 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-2 z-10">
                 <button
                   type="button"
                   onClick={closeEverything}

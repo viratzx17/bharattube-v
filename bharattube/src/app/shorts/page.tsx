@@ -31,7 +31,7 @@ import {
 import { formatCount, formatTimeAgo } from "@/lib/format";
 import { useApp } from "@/context/AppContext";
 import { apiUrl } from "@/lib/api-config";
-import { channelHref } from "@/lib/backend-adapter";
+import { adaptVideos, channelHref } from "@/lib/backend-adapter";
 
 interface ShortComment {
   id: string | number;
@@ -117,20 +117,28 @@ function ShortSlide({
       if (shouldReport || watchedRef.current % 5 === 0) {
         reportedRef.current = true;
         try {
-          const res = await fetch(apiUrl(`/videos/${short.id}`), {
+          const res = await fetch(apiUrl(`/history/${encodeURIComponent(String(short.id))}`), {
             method: "POST",
+            credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              action: "view_progress",
-              watchedSeconds: watchedRef.current,
-              currentPosition: Math.round(v.currentTime),
+              watchedDuration: watchedRef.current,
+              currentTime: Math.round(v.currentTime),
               duration: Math.round(duration),
-              sessionKey: sessionKeyRef.current,
             }),
           });
           if (res.ok) {
             const data = await res.json();
-            if (typeof data.viewsCount === "number") onViewCounted(data.viewsCount);
+            if (data?.viewCounted) {
+              const videoRes = await fetch(apiUrl(`/videos/${encodeURIComponent(String(short.id))}`), {
+                cache: "no-store",
+              });
+              if (videoRes.ok) {
+                const latest = await videoRes.json().catch(() => ({}));
+                const views = Number(latest?.data?.views ?? latest?.video?.views ?? latest?.views);
+                if (Number.isFinite(views)) onViewCounted(views);
+              }
+            }
           }
         } catch {
           /* offline — retry on next tick */
@@ -338,12 +346,12 @@ function CommentsSheet({
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(apiUrl(`/comments?videoId=${videoId}`), {
+      const res = await fetch(apiUrl(`/comments/${encodeURIComponent(String(videoId))}`), {
         cache: "no-store",
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      setItems(data.comments || []);
+      setItems(data.comments || data.data?.comments || []);
     } catch {
       setError("Could not load comments.");
     } finally {
@@ -365,10 +373,11 @@ function CommentsSheet({
     if (!content || posting) return;
     setPosting(true);
     try {
-      const res = await fetch(apiUrl("/comments"), {
+      const res = await fetch(apiUrl(`/comments/${encodeURIComponent(String(videoId))}`), {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create", videoId, content }),
+        body: JSON.stringify({ text: content }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -507,10 +516,10 @@ function ShortsContent() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(apiUrl("/videos?isShort=true"), { cache: "no-store" });
+      const res = await fetch(apiUrl("/shorts/feed?limit=30"), { cache: "no-store" });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      setShorts(data.videos || []);
+      setShorts(adaptVideos(data, "shorts") as unknown as Array<VideoItem & { userReaction?: "like" | "dislike" | null }>);
     } catch {
       setError("Could not load Shorts. Check your connection and try again.");
     } finally {
@@ -525,7 +534,7 @@ function ShortsContent() {
   // Deep link: /shorts?id=123 scrolls to that short once loaded.
   useEffect(() => {
     if (didInitialScroll.current || shorts.length === 0 || !initialIdParam) return;
-    const idx = shorts.findIndex((s) => s.id === Number(initialIdParam));
+    const idx = shorts.findIndex((s) => String(s.id) === String(initialIdParam));
     if (idx >= 0) {
       didInitialScroll.current = true;
       setActiveIndex(idx);
@@ -616,7 +625,7 @@ function ShortsContent() {
               onLiked={(likes, reaction) =>
                 setShorts((prev) =>
                   prev.map((s) =>
-                    s.id === short.id
+                    String(s.id) === String(short.id)
                       ? { ...s, likesCount: likes, userReaction: reaction }
                       : s
                   )
@@ -625,7 +634,7 @@ function ShortsContent() {
               onViewCounted={(views) =>
                 setShorts((prev) =>
                   prev.map((s) =>
-                    s.id === short.id ? { ...s, viewsCount: views } : s
+                    String(s.id) === String(short.id) ? { ...s, viewsCount: views } : s
                   )
                 )
               }
@@ -641,7 +650,7 @@ function ShortsContent() {
           onPosted={() =>
             setShorts((prev) =>
               prev.map((s) =>
-                s.id === commentsFor
+                String(s.id) === String(commentsFor)
                   ? { ...s, commentsCount: (s.commentsCount || 0) + 1 }
                   : s
               )

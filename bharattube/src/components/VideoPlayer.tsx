@@ -57,12 +57,40 @@ export function VideoPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [playbackRate, setPlaybackRate] = useState(initialPlaybackRate || 1);
   const [quality, setQuality] = useState("Auto (Source)");
+  const qualitySeekRef = useRef<number | null>(null);
   const [captionsEnabled, setCaptionsEnabled] = useState(Boolean(initialCaptions));
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [resumedBanner, setResumedBanner] = useState(false);
   const [mediaError, setMediaError] = useState(false);
-  const { user } = useApp();
+  const { user, showToast } = useApp();
+
+  const qualityDimensions: Record<string, [number, number] | null> = {
+    "Auto (Source)": null,
+    "1080p HD": [1920, 1080],
+    "720p": [1280, 720],
+    "480p": [854, 480],
+    "360p": [640, 360],
+    "240p": [426, 240],
+  };
+
+  const buildQualityUrl = (source: string, selectedQuality: string) => {
+    const dimensions = qualityDimensions[selectedQuality];
+    if (
+      !dimensions ||
+      !/res\.cloudinary\.com\//i.test(source) ||
+      !/\/(?:video|raw)\/upload\//i.test(source)
+    ) {
+      return source;
+    }
+    const [width, height] = dimensions;
+    return source.replace(
+      /\/(video|raw)\/upload\//i,
+      "/$1/upload/c_limit,q_auto,w_" + width + ",h_" + height + "/"
+    );
+  };
+
+  const playbackVideoUrl = buildQualityUrl(videoUrl, quality);
 
   const watchedSecondsRef = useRef(0);
   const lastPositionRef = useRef(0);
@@ -87,6 +115,18 @@ export function VideoPlayer({
     if (v.duration && !Number.isNaN(v.duration) && Number.isFinite(v.duration)) {
       setDuration(v.duration);
     }
+
+    if (qualitySeekRef.current !== null) {
+      const seekTo = Math.min(
+        qualitySeekRef.current,
+        Math.max(0, (v.duration || initialDuration || 0) - 0.25)
+      );
+      v.currentTime = Math.max(0, seekTo);
+      setCurrentTime(Math.max(0, seekTo));
+      qualitySeekRef.current = null;
+      return;
+    }
+
     if (
       savedProgressSeconds > 2 &&
       savedProgressSeconds < (v.duration || initialDuration) - 3
@@ -165,6 +205,35 @@ export function VideoPlayer({
 
     return () => clearInterval(interval);
   }, [isPlaying, duration, initialDuration, reportProgress]);
+
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || quality === "Auto (Source)") return;
+
+    const nextUrl = buildQualityUrl(videoUrl, quality);
+    if (nextUrl === videoUrl) {
+      setQuality("Auto (Source)");
+      showToast(
+        "Additional quality variants are available for Cloudinary-hosted videos only.",
+        "info"
+      );
+      return;
+    }
+
+    qualitySeekRef.current = v.currentTime;
+    const wasPlaying = !v.paused;
+    setMediaError(false);
+    v.src = nextUrl;
+    v.load();
+    if (wasPlaying) {
+      const playAfterMetadata = () => {
+        v.removeEventListener("loadedmetadata", playAfterMetadata);
+        v.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+      };
+      v.addEventListener("loadedmetadata", playAfterMetadata);
+    }
+  }, [quality, videoUrl, showToast]);
 
 
   const togglePlay = () => {
@@ -289,7 +358,7 @@ export function VideoPlayer({
     >
       <video
         ref={videoRef}
-        src={videoUrl}
+        src={playbackVideoUrl}
         poster={thumbnailUrl}
         playsInline
         onClick={togglePlay}
@@ -486,7 +555,7 @@ export function VideoPlayer({
                     Stream Quality
                   </div>
                   <div className="flex flex-col gap-1">
-                    {["Auto (Source)", "1080p HD", "720p"].map((q) => (
+                    {["Auto (Source)", "1080p HD", "720p", "480p", "360p", "240p"].map((q) => (
                       <button
                         key={q}
                         type="button"

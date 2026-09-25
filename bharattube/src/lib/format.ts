@@ -59,4 +59,5 @@ export const VIDEO_CATEGORIES = [
   "Education",
   "Technology",
   "Entertainment",
+  "Comedy",
 ];

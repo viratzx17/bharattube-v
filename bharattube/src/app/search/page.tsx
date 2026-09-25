@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Search, SlidersHorizontal, ListVideo } from "lucide-react";
+import { Search, SlidersHorizontal, ListVideo, Loader2 } from "lucide-react";
 import { MobileSearchBar } from "@/components/MobileSearchBar";
 import { ErrorState } from "@/components/VideoComponents";
 import {
@@ -66,10 +66,9 @@ function SearchContent() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(apiUrl(`/activity?type=search&q=${encodeURIComponent(
-          query
-        )}&filter=${filter}&sort=${sort}`),
-        { cache: "no-store" }
+      const res = await fetch(
+        apiUrl(`/search?q=${encodeURIComponent(query)}&limit=50`),
+        { cache: "no-store", credentials: "include" }
       );
       if (!res.ok) {
         throw new Error("search failed");
@@ -79,15 +78,45 @@ function SearchContent() {
       // Map the backend's shapes onto what this page renders.
       // Videos: { _id, owner:{...}, thumbnail, views, createdAt, ... }
       // Channels: { _id, channelName, handle, logo, subscribers[] }
-      setVideos(adaptVideos(data) as unknown as VideoItem[]);
-      setChannels(
-        adaptChannelResults(data, "channels", {
-          currentUserId: user?.id != null ? String(user.id) : null,
-        }) as unknown as ChannelResult[]
-      );
-      setPlaylists(
-        (Array.isArray(data.playlists) ? data.playlists : []) as PlaylistResult[]
-      );
+      let nextVideos = adaptVideos(data) as unknown as VideoItem[];
+      let nextChannels = adaptChannelResults(data, "channels", {
+        currentUserId: user?.id != null ? String(user.id) : null,
+      }) as unknown as ChannelResult[];
+      const nextPlaylists = (Array.isArray(data.playlists) ? data.playlists : [])
+        .map((pl: any): PlaylistResult => ({
+          id: String(pl?._id ?? pl?.id ?? ""),
+          title: String(pl?.title ?? "Untitled playlist"),
+          description: String(pl?.description ?? ""),
+          itemCount: Number(pl?.itemCount ?? pl?.videos?.length ?? 0),
+          thumbnailUrl: pl?.thumbnailUrl || pl?.thumbnail || pl?.videos?.[0]?.thumbnail || null,
+          owner: {
+            id: String(pl?.owner?._id ?? pl?.owner?.id ?? ""),
+            username: String(pl?.owner?.username ?? ""),
+            displayName: String(pl?.owner?.name ?? pl?.owner?.displayName ?? "BharatTube creator"),
+          },
+        }))
+        .filter((pl: { id: string | number }) => Boolean(pl.id));
+
+      if (filter === "videos") {
+        nextChannels = [];
+        nextPlaylists.length = 0;
+      } else if (filter === "channels") {
+        nextVideos = [];
+        nextPlaylists.length = 0;
+      } else if (filter === "playlists") {
+        nextVideos = [];
+        nextChannels = [];
+      }
+
+      if (sort === "latest") {
+        nextVideos.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+      } else if (sort === "views") {
+        nextVideos.sort((a, b) => b.viewsCount - a.viewsCount);
+      }
+
+      setVideos(nextVideos);
+      setChannels(nextChannels);
+      setPlaylists(nextPlaylists);
     } catch {
       setError("Could not load search results. Check your connection and try again.");
       setVideos([]);
@@ -96,7 +125,7 @@ function SearchContent() {
     } finally {
       setLoading(false);
     }
-  }, [query, filter, sort]);
+  }, [query, filter, sort, user?.id]);
 
   useEffect(() => {
     runSearch();
@@ -148,7 +177,7 @@ function SearchContent() {
       </div>
 
       {loading ? (
-        <div className="space-y-4 animate-pulse">
+        <div className="space-y-4" aria-live="polite" aria-busy="true">
           {Array.from({ length: 5 }).map((_, i) => (
             <div
               key={i}
@@ -278,8 +307,9 @@ export default function SearchPage() {
   return (
     <Suspense
       fallback={
-        <div className="max-w-5xl mx-auto px-6 py-12 text-sm text-zinc-500">
-          Searching...
+        <div className="max-w-5xl mx-auto px-6 py-12 flex items-center justify-center gap-2 text-sm text-zinc-500">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Searching…
         </div>
       }
     >

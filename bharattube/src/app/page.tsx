@@ -28,25 +28,52 @@ export default function HomePage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(apiUrl(`/videos?feed=home&category=${encodeURIComponent(selectedCategory)}`),
-        { cache: "no-store" }
-      );
-      if (!res.ok) throw new Error("Failed to load video feed");
-      const data = await res.json();
-      setVideos(adaptVideos(data) as unknown as VideoItem[]);
+      const categoryQuery = selectedCategory === "All"
+        ? ""
+        : `&category=${encodeURIComponent(selectedCategory)}`;
+
+      const [videoRes, shortsRes] = await Promise.all([
+        fetch(apiUrl(`/videos?feed=home${categoryQuery}`), { cache: "no-store" }),
+        selectedCategory === "All"
+          ? fetch(apiUrl("/shorts/feed?limit=12"), { cache: "no-store" })
+          : Promise.resolve(null),
+      ]);
+
+      if (!videoRes.ok) throw new Error("Failed to load video feed");
+      const videoData = await videoRes.json();
+      const standardVideos = adaptVideos(videoData) as unknown as VideoItem[];
+
+      let shortVideos: VideoItem[] = [];
+      if (shortsRes?.ok) {
+        const shortsData = await shortsRes.json();
+        shortVideos = adaptVideos(shortsData, "shorts") as unknown as VideoItem[];
+      }
+
+      setVideos([...standardVideos, ...shortVideos]);
 
       if (user) {
-        const histRes = await fetch(apiUrl("/videos?feed=history"), {
+        const histRes = await fetch(apiUrl("/history/continue-watching"), {
           cache: "no-store",
+          credentials: "include",
         });
         if (histRes.ok) {
           const histData = await histRes.json();
-          const inProgress = (histData.videos || []).filter(
-            (v: VideoItem) =>
-              v.watchProgress &&
-              v.watchProgress.progressSeconds > 0 &&
-              v.watchProgress.completionPercentage < 98
-          );
+          const historyItems = histData.history || histData.data?.history || [];
+          const inProgress = historyItems
+            .map((item: any) => {
+              const adapted = adaptVideos({ videos: [item?.video ?? item] })[0] as unknown as VideoItem | undefined;
+              if (!adapted) return null;
+              return {
+                ...adapted,
+                watchProgress: {
+                  progressSeconds: Number(item?.currentTime ?? item?.watchedDuration ?? 0),
+                  durationSeconds: Number(item?.duration ?? item?.video?.duration ?? adapted.duration ?? 0),
+                  completionPercentage: Number(item?.completionPercentage ?? 0),
+                  lastWatchedAt: item?.lastWatchedAt,
+                },
+              };
+            })
+            .filter((v: VideoItem | null): v is VideoItem => Boolean(v && v.watchProgress && v.watchProgress.progressSeconds > 0 && v.watchProgress.completionPercentage < 98));
           setContinueWatching(inProgress.slice(0, 4));
         }
       } else {

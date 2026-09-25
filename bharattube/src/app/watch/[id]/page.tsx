@@ -4,6 +4,8 @@ import React, { useState, useEffect, useCallback, use } from "react";
 import Link from "next/link";
 import {
   Share2,
+  Download,
+  MessageCircle,
   Clock,
   ListPlus,
   Flag,
@@ -274,6 +276,34 @@ export default function WatchPage({
     }
   };
 
+  const handleDownload = () => {
+    if (!video?.videoUrl) return;
+
+    const source = video.videoUrl;
+    // Cloudinary is the configured media provider. fl_attachment asks it to
+    // return the existing asset as a download instead of changing storage or
+    // creating a second media pipeline.
+    const downloadUrl = /res\.cloudinary\.com\//i.test(source)
+      ? source.replace(/\/(video|raw)\/upload\//i, "/$1/upload/fl_attachment/")
+      : source;
+
+    const anchor = document.createElement("a");
+    anchor.href = downloadUrl;
+    const extension = source.match(/\.(mp4|webm|mov|m4v)(?:$|\?)/i)?.[1]?.toLowerCase() || "mp4";
+    anchor.download = `${video.title.replace(/[^a-z0-9-_]+/gi, "-").replace(/^-+|-+$/g, "") || "bharattube-video"}.${extension}`;
+    anchor.rel = "noopener";
+    anchor.target = "_blank";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    showToast(
+      /res\.cloudinary\.com\//i.test(source)
+        ? "Download started"
+        : "The video opened in a new tab. Use your browser's download option.",
+      "info"
+    );
+  };
+
   const handleShare = async () => {
     const url = window.location.href;
     // Web Share API gives the real native sheet on Android/iOS.
@@ -291,6 +321,16 @@ export default function WatchPage({
     } catch {
       showToast(url, "info");
     }
+  };
+
+  const handleWhatsAppShare = () => {
+    const url = window.location.href;
+    const text = `${video?.title || "BharatTube video"} ${url}`;
+    window.open(
+      `https://wa.me/?text=${encodeURIComponent(text)}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
   };
 
   const handleReportVideo = async () => {
@@ -527,6 +567,24 @@ export default function WatchPage({
               >
                 <Share2 className="w-4 h-4" />
                 <span>Share</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleWhatsAppShare}
+                className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-emerald-600/10 dark:bg-emerald-500/10 hover:bg-emerald-600/20 active:scale-95 text-emerald-700 dark:text-emerald-400 text-sm font-medium transition-all cursor-pointer"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>WhatsApp</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDownload}
+                className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-zinc-200/80 dark:bg-zinc-800/90 hover:bg-zinc-300/70 dark:hover:bg-zinc-700 active:scale-95 text-zinc-900 dark:text-zinc-100 text-sm font-medium transition-all cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download</span>
               </button>
 
               <button

@@ -62,7 +62,7 @@ export default function ChannelPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const { user, openUploadModal, feedRefreshTrigger, refreshUser } = useApp();
+  const { user, loadingAuth, openUploadModal, feedRefreshTrigger, refreshUser } = useApp();
 
   const [channel, setChannel] = useState<ChannelProfile | null>(null);
   const [videos, setVideos] = useState<VideoItem[]>([]);
@@ -93,111 +93,87 @@ export default function ChannelPage({
    * Nothing is mocked: every value below is mapped from the API response.
    */
   const loadChannel = useCallback(async () => {
+    if (loadingAuth) return;
+
     setLoading(true);
     setError("");
     setChannelRouteMissing(false);
     setOwnChannelMissing(false);
 
     try {
-      const res = await fetch(channelApiUrl(id), { cache: "no-store" });
+      // "Your Channel" historically linked to the user id, while the real
+      // backend public route is keyed by channel handle. Resolve that case
+      // directly through GET /channel/me so the UI never flashes "Channel not
+      // found" before redirecting to the canonical handle URL.
+      const isOwnUserId = Boolean(user && String(id) === String(user.id));
       let payload: unknown = null;
-      try {
-        payload = await res.json();
-      } catch {
-        payload = null;
-      }
+      let resOk = false;
+      let responseMessage = "";
 
-      if (!res.ok) {
-        const msg =
-          payload && typeof payload === "object"
-            ? String(
-                (payload as Record<string, unknown>).message ||
-                  (payload as Record<string, unknown>).error ||
-                  ""
-              )
-            : "";
+      if (isOwnUserId) {
+        const meRes = await fetch(channelMeApiUrl(), {
+          credentials: "include",
+          cache: "no-store",
+        });
+        resOk = meRes.ok;
+        payload = await meRes.json().catch(() => null);
+        responseMessage = payload && typeof payload === "object"
+          ? String((payload as Record<string, unknown>).message || (payload as Record<string, unknown>).error || "")
+          : "";
 
-        // ROOT-CAUSE FIX: the backend resolves channels only by HANDLE, while
-        // "Your Channel" links carry the signed-in user's id. When a resource
-        // miss hits exactly the current user's id, resolve the REAL handle
-        // through the authenticated GET /channel/me endpoint (no hardcoding),
-        // then navigate to the canonical handle URL so refresh keeps working.
-        const slugLooksLikeOwnerId =
-          user != null &&
-          String(id) !== "" &&
-          String(id) === String(user.id);
-
-        if (slugLooksLikeOwnerId && !/route '.*' not found/i.test(msg)) {
-          try {
-            const meRes = await fetch(channelMeApiUrl(), {
-              credentials: "include",
-              cache: "no-store",
-            });
-            if (meRes.ok) {
-              const meData = await meRes.json();
-              const mine = adaptChannel(meData, {
-                currentUserId: user?.id != null ? String(user.id) : null,
-              });
-              const handle = mine?.username?.trim();
-              if (handle) {
-                // Preserve the original query (?tab=...) so no link intent is lost.
-                const canonical = `/channel/${encodeURIComponent(handle)}${
-                  window.location.search
-                }`;
-                if (window.location.pathname !== canonical) {
-                  // Canonical public URL → direct refresh loads this channel.
-                  router.replace(canonical);
-                } else {
-                  setChannel(null);
-                  setError("");
-                  setLoading(false);
-                }
-                return;
-              }
-            }
-
-            // The backend answered (200-without-channel, 404, or empty) — the
-            // user's account simply has no channel record. Report THAT truth,
-            // never "Channel Not Found" (which would be a lie) and never a
-            // fabricated channel.
+        if (!meRes.ok) {
+          if (/channel.*not found|no channel|create.*channel/i.test(responseMessage)) {
             setOwnChannelMissing(true);
             setChannel(null);
             setVideos([]);
             setPlaylists([]);
             return;
-          } catch (err) {
-            // Distinguish a real reachability failure from a channel miss so
-            // the error shown is truthful during development too.
-            const isNetwork =
-              err instanceof TypeError ||
-              /fetch|network|cors/i.test(String((err as Error)?.message || ""));
-            setError(
-              isNetwork
-                ? "Could not reach the video service. The server may be offline or blocking requests from this site."
-                : "Failed to load channel data."
-            );
-            setChannel(null);
-            setVideos([]);
-            setPlaylists([]);
-            return;
           }
+          throw new Error(responseMessage || "Failed to load your channel");
         }
+      } else {
+        const res = await fetch(channelApiUrl(id), { cache: "no-store" });
+        resOk = res.ok;
+        payload = await res.json().catch(() => null);
+        responseMessage = payload && typeof payload === "object"
+          ? String((payload as Record<string, unknown>).message || (payload as Record<string, unknown>).error || "")
+          : "";
 
-        // Distinguish "this backend has no channel route" from "not this channel".
-        if (isRouteNotFound(payload)) {
-          setChannelRouteMissing(true);
-        } else {
-          setError(msg || "Channel not found");
+        if (!res.ok) {
+          if (isRouteNotFound(payload)) {
+            setChannelRouteMissing(true);
+          } else {
+            setError(responseMessage || "Channel not found");
+          }
+          setChannel(null);
+          setVideos([]);
+          setPlaylists([]);
+          return;
         }
+      }
+
+      if (!resOk || !payload) {
+        setError(responseMessage || "Channel not found");
+        return;
+      }
+
+      const adapted = adaptChannel(payload, {
+        currentUserId: user?.id != null ? String(user.id) : null,
+      });
+
+      if (!adapted) {
+        if (isOwnUserId) setOwnChannelMissing(true);
+        else setError("Channel not found");
         setChannel(null);
         setVideos([]);
         setPlaylists([]);
         return;
       }
 
-      const adapted = adaptChannel(payload, { currentUserId: user?.id != null ? String(user.id) : null });
-      if (!adapted) {
-        setError("Channel not found");
+      // Canonicalize an own-channel id URL before rendering the public page.
+      if (isOwnUserId && adapted.username && String(id) !== String(adapted.username)) {
+        const canonical = `/channel/${encodeURIComponent(adapted.username)}${window.location.search}`;
+        router.replace(canonical);
         return;
       }
 
@@ -218,7 +194,6 @@ export default function ChannelPage({
         createdAt: adapted.createdAt,
       });
 
-      // The existing backend exposes public channel videos by HANDLE.
       const vres = await fetch(
         apiUrl(`/channel/${encodeURIComponent(adapted.username)}/videos`),
         { cache: "no-store" }
@@ -238,12 +213,15 @@ export default function ChannelPage({
       setError(
         isNetwork
           ? "Could not reach the video service. The server may be offline or blocking requests from this site."
-          : "Failed to load channel data."
+          : String((err as Error)?.message || "Failed to load channel data.")
       );
+      setChannel(null);
+      setVideos([]);
+      setPlaylists([]);
     } finally {
       setLoading(false);
     }
-  }, [id, user?.id, router]);
+  }, [id, user?.id, loadingAuth, router]);
 
   useEffect(() => {
     loadChannel();
